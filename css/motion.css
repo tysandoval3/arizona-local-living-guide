@@ -1,0 +1,132 @@
+/* ============================================================
+   premium-web-motion — motion.css
+   Reveal states, parallax hooks, watermark headings, and the
+   two-level prefers-reduced-motion fail-safe.
+
+   Contract with motion.js:
+   - motion.js adds `html.motion-ready` ONLY when it will animate
+     (libs loaded + motion allowed). Elements are hidden ONLY under
+     that class, so no-JS / failed-load / reduced-motion = visible.
+   - motion.js adds `html.motion-disabled` when it bails (fallback).
+   Depends on tokens.css for --ease-out-soft / --dur-reveal / etc.
+   ============================================================ */
+
+/* ---- On-enter reveals (JS-gated so no-JS shows everything) ---- */
+html.motion-ready [data-reveal] {
+  opacity: 0;
+  transform: translateY(var(--reveal-shift, 32px));
+  will-change: transform, opacity;
+}
+html.motion-ready [data-reveal="fade"]  { transform: none; }
+html.motion-ready [data-reveal="left"]  { transform: translateX(calc(-1 * var(--reveal-shift, 32px))); }
+html.motion-ready [data-reveal="right"] { transform: translateX(var(--reveal-shift, 32px)); }
+html.motion-ready [data-reveal="scale"] { transform: scale(1.04); }
+
+/* Grouped/staggered children */
+html.motion-ready [data-reveal-group] > * {
+  opacity: 0;
+  transform: translateY(calc(var(--reveal-shift, 32px) * 0.85));
+  will-change: transform, opacity;
+}
+
+/* motion.js flips these to the revealed state by adding .is-revealed
+   and transitioning (kept as CSS so we animate off the compositor). */
+html.motion-ready [data-reveal].is-revealed,
+html.motion-ready [data-reveal-group].is-revealed > * {
+  opacity: 1;
+  transform: none;
+  transition: opacity var(--dur-reveal, 0.9s) ease,
+              transform var(--dur-reveal, 0.9s) var(--ease-out-soft);
+}
+/* stagger the group children */
+html.motion-ready [data-reveal-group].is-revealed > *:nth-child(2) { transition-delay: calc(var(--stagger) * 1); }
+html.motion-ready [data-reveal-group].is-revealed > *:nth-child(3) { transition-delay: calc(var(--stagger) * 2); }
+html.motion-ready [data-reveal-group].is-revealed > *:nth-child(4) { transition-delay: calc(var(--stagger) * 3); }
+html.motion-ready [data-reveal-group].is-revealed > *:nth-child(5) { transition-delay: calc(var(--stagger) * 4); }
+html.motion-ready [data-reveal-group].is-revealed > *:nth-child(6) { transition-delay: calc(var(--stagger) * 5); }
+html.motion-ready [data-reveal-group].is-revealed > *:nth-child(7) { transition-delay: calc(var(--stagger) * 6); }
+html.motion-ready [data-reveal-group].is-revealed > *:nth-child(8) { transition-delay: calc(var(--stagger) * 7); }
+
+/* ---- Parallax: element travels a fraction of scroll (driven by GSAP) ---- */
+/* Wrap the moving media in an element with overflow:hidden so the
+   over-sized child doesn't create gaps at the section edges. */
+[data-parallax] { will-change: transform; }
+.parallax-frame { overflow: hidden; }
+.parallax-frame > [data-parallax] {
+  /* give the image room to travel without exposing edges */
+  height: calc(100% + 2 * var(--parallax-overscan, 60px));
+  margin-top: calc(-1 * var(--parallax-overscan, 60px));
+  width: 100%;
+  object-fit: cover;
+}
+
+/* ---- Oversized watermark heading (sits behind content) ---- */
+.watermark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(4rem, 22vw, 20rem);
+  line-height: 0.8;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: currentColor;
+  opacity: 0.06;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+.watermark + * { position: relative; z-index: 1; }
+
+/* ---- Pinned scene helpers ---- */
+[data-pin-scene] { position: relative; }
+
+/* Cross-fade steps stack on top of each other (motion.js toggles opacity).
+   ONLY when pins actually build (desktop + motion-ready). Below the pin
+   breakpoint the steps must flow normally & stay visible — so this is gated.
+   NB: --pin-min-width can't drive @media; keep this 768px in sync with it. */
+@media (min-width: 768px) {
+  html.motion-ready [data-pin-scene]:has([data-pin-step]) {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+  }
+  html.motion-ready [data-pin-step] { grid-area: 1 / 1; }
+}
+
+/* Horizontal-scroll track: a row wider than the viewport that motion.js
+   translates on X while the scene is pinned. */
+[data-pin-track] {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-5, 32px);
+  will-change: transform;
+}
+[data-pin-track] > * { flex: 0 0 auto; }
+
+/* ============================================================
+   TWO-LEVEL ACCESSIBILITY FAIL-SAFE
+   Level 1 (here): CSS forces everything visible + kills transitions.
+   Level 2 (motion.js): gsap.matchMedia never builds the timelines.
+   Also covers html.motion-disabled (libs failed / JS off).
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  html [data-reveal],
+  html [data-reveal-group] > *,
+  html [data-parallax] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .watermark { opacity: 0.05 !important; }
+  html { scroll-behavior: auto !important; }
+}
+
+html.motion-disabled [data-reveal],
+html.motion-disabled [data-reveal-group] > *,
+html.motion-disabled [data-parallax] {
+  opacity: 1 !important;
+  transform: none !important;
+}
